@@ -79,23 +79,23 @@ function renderChart(data) {
     }
     // ---------------------------
 
-    const labels = [1, 2, 3, 4, 5, 6, 7, 8]; // Simple "1", "2" for X-axis
+    const labels = [0, 1, 2, 3, 4, 5, 6, 7, 8]; // Updated to 0-8
 
-    const actualData = new Array(8).fill(null);
-    const predictedData = new Array(8).fill(null);
+    const actualData = new Array(9).fill(null);
+    const predictedData = new Array(9).fill(null);
 
     completed.forEach(d => {
-        actualData[d.semester - 1] = d.cgpa;
+        actualData[d.semester] = d.cgpa;
     });
 
     // Anchor predicted line to last actual point
     if (completed.length > 0) {
         const lastActual = completed[completed.length - 1];
-        predictedData[lastActual.semester - 1] = lastActual.cgpa;
+        predictedData[lastActual.semester] = lastActual.cgpa;
     }
 
     predicted.forEach(d => {
-        predictedData[d.semester - 1] = d.predicted_cgpa;
+        predictedData[d.semester] = d.predicted_cgpa;
     });
 
     chartInstance = new Chart(ctx, {
@@ -106,23 +106,23 @@ function renderChart(data) {
                 {
                     label: 'Achieved CGPA',
                     data: actualData,
-                    borderColor: '#4CAF50', // Green
-                    backgroundColor: '#4CAF50',
+                    borderColor: '#2e7d32', // Academic Green
+                    backgroundColor: '#2e7d32',
                     borderWidth: 2,
                     tension: 0.4, // Smooth curve
                     pointRadius: 5,
-                    pointBackgroundColor: '#4CAF50'
+                    pointBackgroundColor: '#2e7d32'
                 },
                 {
                     label: 'Proposed CGPA',
                     data: predictedData,
-                    borderColor: '#F44336', // Red
-                    backgroundColor: '#F44336',
+                    borderColor: '#0d6efd', // Bootstrap Primary Blue
+                    backgroundColor: '#0d6efd',
                     borderWidth: 2,
                     borderDash: [5, 5], // Dashed
-                    tension: 0.1, // Straighter line for prediction
+                    tension: 0.1, // Straighter line
                     pointRadius: 5,
-                    pointBackgroundColor: '#F44336'
+                    pointBackgroundColor: '#0d6efd'
                 }
             ]
         },
