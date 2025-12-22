@@ -11,6 +11,10 @@ from prediction import predict_remaining_cgpa
 from prediction import predict_remaining_cgpa
 from functools import wraps
 import math
+import os
+
+
+
 
 # Load env variables
 load_dotenv()
@@ -576,3 +580,13 @@ def handle_error(e):
 
 if __name__ == "__main__":
     app.run(debug=(os.getenv("FLASK_ENV") == "development"))
+
+
+
+
+#new modifications
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
