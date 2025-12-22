@@ -10,12 +10,14 @@ function getPreferredTheme() {
 
 function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-bs-theme', theme);
     localStorage.setItem(THEME_KEY, theme);
     updateToggleIcon(theme);
+    window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } }));
 }
 
 function toggleTheme() {
-    const current = document.documentElement.getAttribute('data-theme') || 'light';
+    const current = document.documentElement.getAttribute('data-bs-theme') || 'light';
     const next = current === 'light' ? 'dark' : 'light';
     applyTheme(next);
 }

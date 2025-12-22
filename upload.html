@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
-<body class="bg-light">
+<body>
 
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
@@ -50,6 +50,44 @@
             </div>
         </div>
 
+        <!-- Format Guide Section -->
+        <div id="formatGuide" class="card shadow-sm mb-4 border-info">
+            <div class="card-header bg-info text-dark bg-opacity-10">
+                <h5 class="mb-0">📄 Excel / CSV Format Guide</h5>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-2">Please ensure your file follows this column structure:</p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Register Number</th>
+                                <th>Student Name</th>
+                                <th>CGPA 1</th>
+                                <th>CGPA 2</th>
+                                <th>...</th>
+                                <th>CGPA 8</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>21CS001</td>
+                                <td>John Doe</td>
+                                <td>8.5</td>
+                                <td>9.0</td>
+                                <td>...</td>
+                                <td>(Optional)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-light border mt-2 py-2 small">
+                    <i class="bi bi-info-circle"></i>
+                    Columns can be case-insensitive (e.g., 'Roll No', 'Name', 'CGPA 1').
+                </div>
+            </div>
+        </div>
+
         <!-- Data Preview Section -->
         <div id="previewContainer" class="mb-5" style="display: none;">
             <h5>Recent Upload Preview</h5>
@@ -58,7 +96,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Name</th>
-                            <th>Roll Number</th>
+                            <th>Register Number</th>
                             <th>Completed Semesters</th>
                             <th>Missing Semesters</th>
                         </tr>

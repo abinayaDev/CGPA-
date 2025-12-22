@@ -14,10 +14,12 @@
     /* Default Card BG */
 }
 
-[data-theme="dark"] {
-    --bg-color: #121212;
-    --text-color: #e0e0e0;
-    --card-bg: #1e1e1e;
+[data-bs-theme="dark"] {
+    --bg-color: #212529;
+    /* Bootstrap Dark Body */
+    --text-color: #f8f9fa;
+    --card-bg: #2b3035;
+    /* Slightly lighter than body for depth */
     --card-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5);
     --primary-color: #3d8bfd;
     /* Lighter Blue for Dark Mode readability */
@@ -104,4 +106,20 @@ h5 {
         width: 100vw !important;
         border-radius: 0;
     }
+}
+
+/* Locked Semester Input Styles */
+.locked-semester-input {
+    background-color: #e8f5e9;
+    /* Light Green for Light Mode */
+    color: #198754;
+    /* Success text color */
+}
+
+[data-bs-theme="dark"] .locked-semester-input {
+    background-color: #132e18;
+    /* Dark Green for Dark Mode */
+    color: #75b798;
+    /* Light Green text */
+    border-color: #198754;
 }

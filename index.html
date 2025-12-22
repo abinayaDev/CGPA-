@@ -12,25 +12,27 @@
 
 <body>
     <!-- Theme Toggle (Absolute Top Right) -->
-    <div style="position: absolute; top: 1rem; right: 1rem;">
+    <div style="position: absolute; top: 1rem; right: 1rem; z-index: 1000;">
         <button class="btn btn-outline-secondary" id="themeToggleBtn" title="Switch Theme">🌙</button>
     </div>
 
-    <div class="card p-4 shadow-sm">
-        <h3 class="text-center mb-4">CGPA Predictor</h3>
-        <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" id="email" class="form-control" placeholder="Enter email">
+    <div class="container d-flex justify-content-center align-items-center min-vh-100">
+        <div class="card p-4 shadow-sm w-100" style="max-width: 400px;">
+            <h3 class="text-center mb-4">CGPA Predictor</h3>
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" id="email" class="form-control" placeholder="Enter email">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" id="password" class="form-control" placeholder="Enter password">
+            </div>
+            <div class="d-grid gap-2">
+                <button class="btn btn-primary" id="btnLogin">Login</button>
+                <button class="btn btn-outline-secondary" id="btnSignup">Sign Up</button>
+            </div>
+            <div id="authMessage" class="mt-3 text-center"></div>
         </div>
-        <div class="mb-3">
-            <label class="form-label">Password</label>
-            <input type="password" id="password" class="form-control" placeholder="Enter password">
-        </div>
-        <div class="d-grid gap-2">
-            <button class="btn btn-primary" id="btnLogin">Login</button>
-            <button class="btn btn-outline-secondary" id="btnSignup">Sign Up</button>
-        </div>
-        <div id="authMessage" class="mt-3 text-center"></div>
     </div>
 
     <script src="theme.js"></script>

@@ -30,6 +30,9 @@ form.addEventListener("submit", async (e) => {
         // Get JWT token from Supabase session
         const { data: { session } } = await supabaseClient.auth.getSession();
         const token = session?.access_token;
+        const formatGuide = document.getElementById("formatGuide");
+
+        if (formatGuide) formatGuide.style.display = "none";
 
         if (!token) {
             messageDiv.innerHTML = "<div class='alert alert-danger'>Session expired. Please login again.</div>";
@@ -86,7 +89,7 @@ const btnExportAll = document.getElementById("btnExportAll");
 if (btnExportAll) {
     btnExportAll.addEventListener("click", async () => {
         if (!currentUser) {
-            alert("Please log in first.");
+            messageDiv.innerHTML = "<div class='alert alert-danger'>Please log in first.</div>";
             return;
         }
 
@@ -95,7 +98,7 @@ if (btnExportAll) {
             const token = session?.access_token;
 
             if (!token) {
-                alert("Session expired. Please login again.");
+                messageDiv.innerHTML = "<div class='alert alert-danger'>Session expired. Please login again.</div>";
                 return;
             }
 
@@ -125,7 +128,7 @@ if (btnExportAll) {
             document.body.removeChild(a);
 
         } catch (e) {
-            alert("Export failed: " + e.message);
+            messageDiv.innerHTML = `<div class='alert alert-danger'>Export failed: ${e.message}</div>`;
         }
     });
 }

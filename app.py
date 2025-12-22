@@ -8,7 +8,9 @@ import io
 from supabase import create_client, Client, ClientOptions
 from dotenv import load_dotenv
 from prediction import predict_remaining_cgpa
+from prediction import predict_remaining_cgpa
 from functools import wraps
+import math
 
 # Load env variables
 load_dotenv()
@@ -112,6 +114,9 @@ def _upload_and_parse_excel(user_id):
         # Normalize columns: lowercase and strip spaces
         df.columns = df.columns.str.lower().str.strip()
         
+        # 1. Fix CGPA columns with spaces (e.g., "cgpa 1" -> "cgpa_1")
+        df.columns = df.columns.str.replace(r'cgpa\s+(\d+)', r'cgpa_\1', regex=True)
+
         # Rename 'register number' or 'register_no' to 'roll_no' for consistency
         df.rename(columns={
             "register number": "roll_no", 
@@ -123,7 +128,7 @@ def _upload_and_parse_excel(user_id):
 
         required_cols = {"student_name", "roll_no"}
         if not required_cols.issubset(df.columns):
-            return jsonify({"message": f"Missing columns. Found: {list(df.columns)}. Required: Student Name, Register Number (or Roll No)"}), 400
+            return jsonify({"message": f"Missing columns. Found: {list(df.columns)}. Required: Student Name, Register Number"}), 400
 
         results = []
         errors = []
@@ -194,20 +199,31 @@ def _upload_and_parse_excel(user_id):
                 "errors": errors
             }), 400
 
+        duplicates_removed = 0
+        inserted_count = 0
+
         # Perform Supabase Upsert
         if db_records:
             try:
-                unique_records = { (r['roll_no'], r['semester']): r for r in db_records }.values()
+                unique_records_list = list({ (r['roll_no'], r['semester']): r for r in db_records }.values())
+                inserted_count = len(unique_records_list)
+                duplicates_removed = len(db_records) - inserted_count
+
                 db = get_db()
-                data, count = db.table("academic_records").upsert(list(unique_records), on_conflict="user_id, roll_no, semester").execute()
+                data, count = db.table("academic_records").upsert(unique_records_list, on_conflict="user_id, roll_no, semester").execute()
             except Exception as e:
                 return jsonify({"status": "error", "message": f"Database Insert Failed: {str(e)}"}), 500
 
+        msg = f"Processed {inserted_count} unique records."
+        if duplicates_removed > 0:
+            msg += f" Merged {duplicates_removed} duplicate rows."
+
         return jsonify({
             "status": "success",
-            "message": "File processed and saved securely",
+            "message": msg,
             "students_processed": len(results),
-            "records_inserted": len(db_records),
+            "records_inserted": inserted_count,
+            "duplicates_merged": duplicates_removed,
             "data_preview": results
         }), 200
 
@@ -245,7 +261,7 @@ def predict_cgpa(roll_no):
 
         if len(data) < 2:
             return jsonify({
-                "message": f"No data found for this student. Debug: user_id={user_id}, email={email}, records_found={len(data)}"
+                "message": "No academic records found for this Register Number. Please upload data first."
             }), 404
 
         student_name = data[0].get("student_name", "Unknown Student")
@@ -360,6 +376,126 @@ def export_all():
 
     except Exception as e:
         return jsonify({"message": f"Bulk Export failed: {str(e)}"}), 500
+
+@app.route("/api/export_filtered", methods=["POST"])
+@verify_token
+def export_filtered():
+    user_id = request.user_id
+    data = request.json
+    
+    start_roll = data.get("start_roll", "").strip()
+    end_roll = data.get("end_roll", "").strip()
+    
+    min_cgpa_str = str(data.get("min_cgpa", "")).strip()
+    max_cgpa_str = str(data.get("max_cgpa", "")).strip()
+
+    min_cgpa = float(min_cgpa_str) if min_cgpa_str else 0.0
+    max_cgpa = float(max_cgpa_str) if max_cgpa_str else 10.0
+    
+    sort_order = data.get("sort_order", "none") # asc, desc, none
+
+    try:
+        db = get_db()
+        response = db.table("academic_records") \
+            .select("roll_no, student_name, semester, cgpa") \
+            .eq("user_id", user_id) \
+            .execute()
+        
+        records = response.data
+        if not records:
+            return jsonify({"message": "No data found"}), 404
+
+        # Group by student
+        students = {}
+        for r in records:
+            r_no = r['roll_no']
+            if r_no not in students:
+                students[r_no] = {
+                    "roll_no": r_no,
+                    "student_name": r.get('student_name', 'Unknown'),
+                    "completed": []
+                }
+            students[r_no]["completed"].append({"semester": r['semester'], "cgpa": r['cgpa']})
+
+        filtered_students = []
+
+        for r_no, student in students.items():
+            completed = student['completed']
+            if not completed:
+                continue
+
+            # Calculate Average CGPA
+            avg_cgpa = sum(c['cgpa'] for c in completed) / len(completed)
+
+            # 1. Filter by Roll No Range (Alphabetical String Comparison)
+            if start_roll and r_no < start_roll:
+                continue
+            if end_roll and r_no > end_roll:
+                continue
+
+            # 2. Filter by CGPA
+            if avg_cgpa < min_cgpa or avg_cgpa > max_cgpa:
+                continue
+
+            # Prepare Export Row
+            completed.sort(key=lambda x: x['semester'])
+            
+            try:
+                if len(completed) >= 2:
+                    predicted = predict_remaining_cgpa(completed)
+                else:
+                    predicted = []
+            except:
+                predicted = []
+
+            row = {
+                "Register Number": student['roll_no'],
+                "Student Name": student['student_name'],
+                "Average CGPA": round(avg_cgpa, 2)
+            }
+            
+            for c in completed:
+                row[f"CGPA {c['semester']}"] = c['cgpa']
+            
+            for p in predicted:
+                row[f"CGPA {p['semester']}"] = p['predicted_cgpa']
+            
+            filtered_students.append(row)
+
+        # 3. Sort
+        if sort_order == "desc":
+            filtered_students.sort(key=lambda x: x["Average CGPA"], reverse=True)
+        elif sort_order == "asc":
+            filtered_students.sort(key=lambda x: x["Average CGPA"])
+        
+        # Determine Columns
+        columns = ["Register Number", "Student Name", "Average CGPA"] + [f"CGPA {i}" for i in range(1, 9)]
+        df_export = pd.DataFrame(filtered_students)
+        
+        if df_export.empty:
+             return jsonify({"message": "No students matched the filter criteria"}), 404
+
+        for col in columns:
+            if col not in df_export.columns:
+                df_export[col] = ""
+        
+        df_export = df_export[columns]
+
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_export.to_excel(writer, index=False, sheet_name='Filtered Report')
+        
+        output.seek(0)
+        
+        return send_file(
+            output, 
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='filtered_report.xlsx'
+        )
+
+    except Exception as e:
+        return jsonify({"message": f"Filter Export failed: {str(e)}"}), 500
 
 @app.route("/api/simulate", methods=["POST"])
 @verify_token

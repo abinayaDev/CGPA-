@@ -12,7 +12,7 @@ let currentRollNo = "";
 predictBtn.addEventListener("click", async () => {
     const rollNo = predictInput.value.trim();
     if (!rollNo) {
-        predictionMessage.innerHTML = "<div class='alert alert-warning'>Please enter a Roll Number</div>";
+        predictionMessage.innerHTML = "<div class='alert alert-warning'>Please enter a Register Number</div>";
         return;
     }
 
@@ -44,6 +44,11 @@ predictBtn.addEventListener("click", async () => {
         const result = await response.json();
 
         if (!response.ok) {
+            // Handle 404 specially as a Warning, not an Error
+            if (response.status === 404) {
+                predictionMessage.innerHTML = `<div class='alert alert-warning'>${result.message}</div>`;
+                return;
+            }
             throw new Error(result.message);
         }
 
@@ -143,7 +148,7 @@ function renderChart(data) {
                         size: 18,
                         weight: 'bold'
                     },
-                    color: '#000',
+                    color: getChartTheme().textColor,
                     padding: {
                         top: 10,
                         bottom: 40 // Push chart down from title
@@ -191,7 +196,12 @@ function renderChart(data) {
                         }
                     },
                     grid: {
-                        color: '#e0e0e0'
+                        color: getChartTheme().gridColor
+                    },
+                    ticks: {
+                        color: getChartTheme().textColor,
+                        count: 11,
+                        precision: 2
                     }
                 },
                 x: {
@@ -240,8 +250,8 @@ function renderSimulationUI() {
 
         col.innerHTML = `
             <label class="form-label small fw-bold text-success">Sem ${item.semester}</label>
-            <input type="number" class="form-control form-control-sm" 
-                   value="${item.cgpa}" readonly style="background-color: #e8f5e9;">
+            <input type="number" class="form-control form-control-sm locked-semester-input" 
+                   value="${item.cgpa}" readonly>
         `;
         actualContainer.appendChild(col);
     });
@@ -346,13 +356,17 @@ async function handleLockSemester(event) {
         await recalculateFromState();
 
     } catch (e) {
-        alert("Failed to lock semester: " + e.message);
+        // Show error near the button if possible, or use global message
+        // For simplicity and visibility, using global message and scrolling up
+        predictionMessage.innerHTML = `<div class='alert alert-danger'>Failed to lock semester: ${e.message}</div>`;
+        document.documentElement.scrollTop = 0;
     }
 }
 
 async function recalculateFromState() {
     if (simulationState.actual.length < 2) {
-        alert("Need at least 2 actual semesters to predict.");
+        predictionMessage.innerHTML = "<div class='alert alert-warning'>Need at least 2 actual semesters to predict.</div>";
+        document.documentElement.scrollTop = 0;
         return;
     }
 
@@ -394,6 +408,118 @@ async function recalculateFromState() {
         renderChart(simulatedData);
 
     } catch (e) {
-        alert("Recalculation Error: " + e.message);
+        predictionMessage.innerHTML = `<div class='alert alert-danger'>Recalculation Error: ${e.message}</div>`;
+        document.documentElement.scrollTop = 0;
     }
+}
+
+function getChartTheme() {
+    const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    return {
+        textColor: isDark ? '#f8f9fa' : '#212529',
+        gridColor: isDark ? '#495057' : '#e0e0e0'
+    };
+}
+
+window.addEventListener('themeChanged', () => {
+    if (chartInstance) {
+        const theme = getChartTheme();
+
+        // Update Title - Check structure
+        if (chartInstance.options.plugins.title) {
+            chartInstance.options.plugins.title.color = theme.textColor;
+        }
+
+        // Update Legend
+        if (chartInstance.options.plugins.legend && chartInstance.options.plugins.legend.labels) {
+            chartInstance.options.plugins.legend.labels.color = theme.textColor;
+        }
+
+        // Update Scales
+        if (chartInstance.options.scales.y) {
+            chartInstance.options.scales.y.grid.color = theme.gridColor;
+            if (chartInstance.options.scales.y.ticks) chartInstance.options.scales.y.ticks.color = theme.textColor;
+            if (chartInstance.options.scales.y.title) chartInstance.options.scales.y.title.color = theme.textColor;
+        }
+
+        if (chartInstance.options.scales.x) {
+            if (chartInstance.options.scales.x.ticks) chartInstance.options.scales.x.ticks.color = theme.textColor;
+            if (chartInstance.options.scales.x.title) chartInstance.options.scales.x.title.color = theme.textColor;
+        }
+
+        chartInstance.update();
+    }
+});
+
+// Filter Export Logic
+const btnFilterExport = document.getElementById("btnFilterExport");
+if (btnFilterExport) {
+    btnFilterExport.addEventListener("click", async () => {
+        const startRoll = document.getElementById("startRoll").value.trim();
+        const endRoll = document.getElementById("endRoll").value.trim();
+        const minCgpa = document.getElementById("minCgpa").value;
+        const maxCgpa = document.getElementById("maxCgpa").value;
+        const sortOrder = document.getElementById("sortOrder").value;
+        const filterMessage = document.getElementById("filterMessage");
+
+        if (!currentUser) {
+            filterMessage.innerHTML = "<div class='alert alert-danger'>Please log in first.</div>";
+            return;
+        }
+
+        try {
+            filterMessage.innerHTML = "<div class='text-info'>Generating Report...</div>";
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const token = session?.access_token;
+
+            if (!token) {
+                filterMessage.innerHTML = "<div class='alert alert-danger'>Session expired.</div>";
+                return;
+            }
+
+            const response = await fetch("http://127.0.0.1:5000/api/export_filtered", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    start_roll: startRoll,
+                    end_roll: endRoll,
+                    min_cgpa: minCgpa,
+                    max_cgpa: maxCgpa,
+                    sort_order: sortOrder
+                })
+            });
+
+            if (!response.ok) {
+                const result = await response.json();
+                if (response.status === 404) {
+                    filterMessage.innerHTML = `<div class='alert alert-warning'>${result.message}</div>`;
+                    return;
+                }
+                throw new Error(result.message);
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'filtered_report.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            filterMessage.innerHTML = "<div class='text-success'>Export Successful!</div>";
+            setTimeout(() => {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('filterExportModal'));
+                if (modal) modal.hide();
+                filterMessage.innerHTML = "";
+            }, 2000);
+
+        } catch (e) {
+            filterMessage.innerHTML = `<div class='alert alert-danger'>Export Failed: ${e.message}</div>`;
+        }
+    });
 }
