@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CGPA Predictor - Predict</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="#">CGPA Predictor</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" href="upload.html">Upload</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="predict.html">Predict & Export</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <button class="btn btn-outline-light me-2" id="themeToggleBtn" title="Switch Theme">🌙</button>
+                    <!-- Filter Export Button -->
+                    <button class="btn btn-warning me-2 text-nowrap" data-bs-toggle="modal"
+                        data-bs-target="#filterExportModal">
+                        Filter Export
+                    </button>
+                    <button id="btnExportAll" class="btn btn-success me-2 text-nowrap">Export All Data</button>
+                    <button id="btnLogout" class="btn btn-outline-light btn-sm">Logout</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 offset-md-2">
+                <div class="card p-4 shadow-sm">
+                    <h4 class="mb-3">Predict CGPA</h4>
+                    <p class="text-muted">Enter a Register Number to visualize progress and predict future grades.</p>
+
+                    <div class="input-group mb-3">
+                        <input type="text" id="predictRollNo" class="form-control"
+                            placeholder="Enter Register Number (e.g., CS101)">
+                        <button class="btn btn-primary" id="btnPredict">Get Prediction</button>
+                    </div>
+
+                    <div id="predictionMessage"></div>
+
+                    <div id="resultContainer" style="display: none;">
+                        <div class="p-3 border rounded">
+                            <canvas id="cgpaChart" width="400" height="300"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Simulation / Edit Session Section (Hidden for Restricted Users) -->
+                    <div id="simulationContainer" class="mt-4 p-4 border rounded shadow-sm" style="display: none;">
+                        <h5 class="mb-3 text-primary">Edit Session (Simulation)</h5>
+                        <p class="text-muted small">Edit predicted semester CGPAs and lock them to convert to actual
+                            grades. Predictions will recalculate for remaining semesters.</p>
+
+                        <div class="mb-4">
+                            <h6 class="text-success fw-bold mb-2">Actual Semesters (Locked)</h6>
+                            <div id="actualSemesters" class="row g-3">
+                                <!-- Actual semester displays will be injected here -->
+                            </div>
+                        </div>
+
+                        <div>
+                            <h6 class="text-warning fw-bold mb-2">Predicted Semesters (Editable)</h6>
+                            <div id="predictedSemesters" class="row g-3">
+                                <!-- Predicted semester inputs will be injected here -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Export Modal -->
+    <div class="modal fade" id="filterExportModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Filter & Export Data</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="filterExportForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Register Number Range (Optional)</label>
+                            <div class="input-group">
+                                <input type="text" id="startRoll" class="form-control"
+                                    placeholder="Start (e.g., 21CS001)">
+                                <span class="input-group-text">to</span>
+                                <input type="text" id="endRoll" class="form-control" placeholder="End (e.g., 21CS060)">
+                            </div>
+                            <div class="form-text">Leave blank to include all.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">CGPA Range (Optional)</label>
+                            <div class="input-group">
+                                <input type="number" id="minCgpa" class="form-control" placeholder="Min (0)" min="0"
+                                    max="10" step="0.1">
+                                <span class="input-group-text">to</span>
+                                <input type="number" id="maxCgpa" class="form-control" placeholder="Max (10)" min="0"
+                                    max="10" step="0.1">
+                            </div>
+                        </div>
+
+
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Sort By Average CGPA</label>
+                            <select id="sortOrder" class="form-select">
+                                <option value="none">No Sorting</option>
+                                <option value="desc">High to Low (Best Performers First)</option>
+                                <option value="asc">Low to High</option>
+                            </select>
+                        </div>
+                    </form>
+                    <div id="filterMessage" class="mt-2 text-center"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="btnFilterExport">Export Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Need upload.js for the Export All logic? 
+         Wait, in previous step I added Export All logic to upload.js. 
+         But typically predict.js is for this page. 
+         I should adhere to the plan: "Move 'Export All' logic here [predict.js] or keep in shared".
+         Actually, let's just create a small separate script or put it in predict.js for simplicity since this page has the button.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='theme.js') }}"></script>
+    <script src="{{ url_for('static', filename='auth.js') }}"></script>
+
+    <script src="{{ url_for('static', filename='predict.js') }}"></script>
+
+    <!-- We need to ensure the Export All logic is loaded. 
+         If I only load predict.js here, I must verify predict.js has the Export All listener.
+         In the previous step, I added it to 'upload.js'. 
+         So I should MOVE it to a new file or Duplicate it, or just include upload.js here too?
+         Better: I will append the Export All logic to predict.js in the next tool call, 
+         so I don't need to load upload.js here.
+    -->
+</body>
+
+</html>
